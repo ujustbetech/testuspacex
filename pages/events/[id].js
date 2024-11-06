@@ -20,28 +20,47 @@ const EventLoginPage = () => {
 
   useEffect(() => {
     const checkRegistrationStatus = async () => {
+      const storedEventId = localStorage.getItem('lastEventId');
+      console.log('Current event ID:', id);
+      console.log('Stored event ID in localStorage:', storedEventId);
+      
+      // Detect a new event and clear the previous user's phone number if the event has changed
+      if (storedEventId !== id) {
+        console.log('New event detected, clearing localStorage for userPhoneNumber');
+        localStorage.removeItem('userPhoneNumber');
+        localStorage.setItem('lastEventId', id); // Store new event ID
+        setIsLoggedIn(false);
+        setPhoneNumber(''); // Clear the phone number input field
+      }
+  
+      // Retrieve user phone number if already set in localStorage
       const userPhoneNumber = localStorage.getItem('userPhoneNumber');
+      console.log('Retrieved userPhoneNumber from localStorage:', userPhoneNumber);
+      
       if (userPhoneNumber && id) {
         const registeredUserRef = doc(db, 'monthlymeet', id, 'registeredUsers', userPhoneNumber);
         const userDoc = await getDoc(registeredUserRef);
-        console.log(userDoc);
         if (userDoc.exists()) {
+          console.log('User is registered for this event:', userDoc.data());
           setIsLoggedIn(true);
           fetchEventDetails();
           fetchRegisteredUserCount();
           fetchUserName(userPhoneNumber);
         } else {
-          // If user is not registered for this event, clear the localStorage and reset
-          localStorage.removeItem('userPhoneNumber');
+          console.log('User is not registered for this event. Clearing state.');
           setIsLoggedIn(false);
           setPhoneNumber('');
+          localStorage.removeItem('userPhoneNumber'); // Clear if not registered
         }
+      } else {
+        console.log('No userPhoneNumber found or event ID is missing.');
       }
       setLoading(false);
     };
-
+  
     checkRegistrationStatus();
   }, [id]);
+  
   const handleLogin = async (e) => {
     e.preventDefault();
 
@@ -102,8 +121,6 @@ const EventLoginPage = () => {
       const eventDoc = await getDoc(eventRef);
       if (eventDoc.exists()) {
         setEventDetails(eventDoc.data());
-        console.log(eventDoc.data());
-        
       } else {
         setError('No event found.');
       }
@@ -188,20 +205,19 @@ const EventLoginPage = () => {
     })
   : "Invalid time";
 
-
   return (
     <div className="mainContainer">
       <div className='UserDetails'>
         <h1 className="welcomeText">Welcome {userName || 'User'}</h1>
-        <h2 className="eventName">to {eventDetails.name}</h2>
+        <h2 className="eventName">to {eventDetails ? eventDetails.name : 'Event not found'}</h2>
       </div>
       <div className="eventDetails">
-        <p> {eventTime}</p>
+        <p>{eventTime}</p>
         <h2>{registeredUserCount}</h2>
         <p>Registered Orbiters</p>
       </div>
       <div className="zoomLinkContainer">
-        <a href={eventDetails.zoomLink} target="_blank" rel="noopener noreferrer" className="zoomLink">
+        <a href={eventDetails?.zoomLink} target="_blank" rel="noopener noreferrer" className="zoomLink">
           <img src="/zoom-icon.png" alt="Zoom Link" width={30} />
           <span>Join Zoom Meet</span>
         </a>
@@ -216,10 +232,8 @@ const EventLoginPage = () => {
           <div className="modal-content">
             <button className="close-modal" onClick={handleCloseModal}>×</button>
             <h2>Agenda</h2>
-            
-            {eventDetails.agenda && eventDetails.agenda.length > 0 ? (
-              <div dangerouslySetInnerHTML={{ __html: eventDetails.agenda }} >
-              </div>
+            {eventDetails?.agenda && eventDetails.agenda.length > 0 ? (
+              <div dangerouslySetInnerHTML={{ __html: eventDetails.agenda }} />
             ) : (
               <p>No agenda available.</p>
             )}
